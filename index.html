@@ -2,326 +2,384 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>4 Player Advanced Yatzy</title>
+<title>Advanced Yatzy Deluxe</title>
+
 <style>
-body{margin:0;background:white;font-family:Arial}
-canvas{display:block;margin:auto;background:white}
+
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:linear-gradient(120deg,#0f2027,#203a43,#2c5364);
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+color:white;
+overflow:hidden;
+}
+
+#container{
+text-align:center;
+}
+
+canvas{
+background:rgba(255,255,255,.9);
+border-radius:16px;
+box-shadow:0 20px 50px rgba(0,0,0,.7);
+backdrop-filter:blur(10px);
+}
+
+h1{
+margin-bottom:10px;
+letter-spacing:2px;
+text-shadow:0 0 15px white;
+}
+
 </style>
+
 </head>
+
 <body>
 
+<div id="container">
+<h1>🎲 ADVANCED YATZY</h1>
 <canvas id="game"></canvas>
+</div>
 
 <script>
 
-const canvas = document.getElementById("game")
-const ctx = canvas.getContext("2d")
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
-canvas.width = window.innerWidth
-canvas.height = 520
+canvas.width=950
+canvas.height=540
 
-const W = canvas.width
-const H = canvas.height
+const W=canvas.width
+const H=canvas.height
 
-const colors = ["blue","red","green","purple"]
+const colors=["#3a7bff","#ff3a3a","#2ecc71","#b43aff"]
 
-const MENU = 0
-const PLAYING = 1
-const GAME_OVER = 2
+const MENU=0
+const PLAYING=1
+const GAME_OVER=2
 
-let gameState = MENU
+let gameState=MENU
+let numPlayers=4
+let pIdx=0
 
-let numPlayers = 4
-let pIdx = 0
+let dice=[0,0,0,0,0]
+let kept=[false,false,false,false,false]
 
-let dice = [0,0,0,0,0]
-let kept = [false,false,false,false,false]
+let rollsLeft=2
+let rolling=false
+let rollTimer=0
 
-let rollsLeft = 2
+let confetti=[]
 
-const cats = ["1s","2s","3s","4s","5s","6s","3k","4k","FH","SS","LS","YZ","CH"]
+const cats=["1s","2s","3s","4s","5s","6s","3k","4k","FH","SS","LS","YZ","CH"]
 
-let scores = []
+let scores=[]
 
 function rollDie(){
- return Math.floor(Math.random()*6)+1
+return Math.floor(Math.random()*6)+1
 }
 
 function startTurn(){
- for(let i=0;i<5;i++) dice[i]=rollDie()
- while(new Set(dice).size==1){
-  for(let i=0;i<5;i++) dice[i]=rollDie()
- }
- kept=[false,false,false,false,false]
- rollsLeft=2
+
+for(let i=0;i<5;i++) dice[i]=rollDie()
+
+while(new Set(dice).size==1){
+for(let i=0;i<5;i++) dice[i]=rollDie()
+}
+
+kept=[false,false,false,false,false]
+rollsLeft=2
+}
+
+function drawDie(x,y,val,highlight){
+
+let size=70
+
+ctx.save()
+
+if(highlight){
+ctx.shadowColor="#4cff4c"
+ctx.shadowBlur=20
+}
+
+ctx.fillStyle="white"
+ctx.fillRect(x,y,size,size)
+ctx.strokeRect(x,y,size,size)
+
+ctx.shadowBlur=0
+
+ctx.fillStyle="black"
+
+let pip=(dx,dy)=>ctx.beginPath(),ctx.arc(x+dx,y+dy,6,0,Math.PI*2),ctx.fill()
+
+let c=size/2
+
+switch(val){
+
+case 1: pip(c,c); break
+
+case 2:
+pip(20,20)
+pip(50,50)
+break
+
+case 3:
+pip(20,20)
+pip(c,c)
+pip(50,50)
+break
+
+case 4:
+pip(20,20)
+pip(50,20)
+pip(20,50)
+pip(50,50)
+break
+
+case 5:
+pip(20,20)
+pip(50,20)
+pip(c,c)
+pip(20,50)
+pip(50,50)
+break
+
+case 6:
+pip(20,18)
+pip(50,18)
+pip(20,c)
+pip(50,c)
+pip(20,52)
+pip(50,52)
+break
+
+}
+
+ctx.restore()
+
+}
+
+function createConfetti(){
+
+for(let i=0;i<120;i++){
+
+confetti.push({
+x:Math.random()*W,
+y:-20,
+vx:(Math.random()-.5)*4,
+vy:Math.random()*4+2,
+size:Math.random()*6+4,
+color:`hsl(${Math.random()*360},80%,60%)`
+})
+
+}
+
+}
+
+function updateConfetti(){
+
+confetti.forEach(c=>{
+c.x+=c.vx
+c.y+=c.vy
+})
+
+confetti=confetti.filter(c=>c.y<H+20)
+
+}
+
+function drawConfetti(){
+
+confetti.forEach(c=>{
+ctx.fillStyle=c.color
+ctx.fillRect(c.x,c.y,c.size,c.size)
+})
+
 }
 
 function getVal(c,d){
 
- let counts={}
- d.forEach(v=>counts[v]=(counts[v]||0)+1)
+let counts={}
+d.forEach(v=>counts[v]=(counts[v]||0)+1)
 
- let sum=d.reduce((a,b)=>a+b)
+let sum=d.reduce((a,b)=>a+b)
 
- if(c.endsWith("s")){
-  let n=parseInt(c)
-  return d.filter(x=>x==n).length*n
- }
+if(c.endsWith("s")){
+let n=parseInt(c)
+return d.filter(x=>x==n).length*n
+}
 
- if(c=="3k"){
-  return Object.values(counts).some(v=>v>=3)?sum:0
- }
+if(c=="3k") return Object.values(counts).some(v=>v>=3)?sum:0
+if(c=="4k") return Object.values(counts).some(v=>v>=4)?sum:0
 
- if(c=="4k"){
-  return Object.values(counts).some(v=>v>=4)?sum:0
- }
+if(c=="FH"){
+let v=Object.values(counts).sort()
+if(v.toString()=="2,3"||v.includes(5)) return 25
+return 0
+}
 
- if(c=="FH"){
-  let v=Object.values(counts).sort()
-  if(v.toString()=="2,3" || v.includes(5)) return 25
-  return 0
- }
+if(c=="SS"){
+const s=[[1,2,3,4],[2,3,4,5],[3,4,5,6]]
+return s.some(a=>a.every(x=>d.includes(x)))?30:0
+}
 
- if(c=="SS"){
-  const s=[[1,2,3,4],[2,3,4,5],[3,4,5,6]]
-  return s.some(a=>a.every(x=>d.includes(x)))?30:0
- }
+if(c=="LS"){
+let s=[...new Set(d)]
+return s.length==5&&Math.max(...d)-Math.min(...d)==4?40:0
+}
 
- if(c=="LS"){
-  let s=[...new Set(d)]
-  return s.length==5 && Math.max(...d)-Math.min(...d)==4?40:0
- }
+if(c=="YZ") return new Set(d).size==1?50:0
 
- if(c=="YZ"){
-  return new Set(d).size==1?50:0
- }
-
- return sum
+return sum
 }
 
 function checkGameOver(){
- for(let p=0;p<numPlayers;p++){
-  for(let c of cats){
-   if(scores[p][c]==null) return false
-  }
- }
- return true
+for(let p=0;p<numPlayers;p++){
+for(let c of cats){
+if(scores[p][c]==null) return false
+}
+}
+return true
 }
 
 canvas.addEventListener("click",e=>{
 
- let rect=canvas.getBoundingClientRect()
- let mx=e.clientX-rect.left
- let my=e.clientY-rect.top
+let rect=canvas.getBoundingClientRect()
+let mx=e.clientX-rect.left
+let my=e.clientY-rect.top
 
- if(gameState==MENU){
+if(gameState==MENU){
 
-  for(let i=1;i<=4;i++){
+for(let i=1;i<=4;i++){
 
-   let bx=W/2-60
-   let by=100+i*60
+let bx=W/2-80
+let by=120+i*60
 
-   if(mx>bx && mx<bx+120 && my>by && my<by+40){
+if(mx>bx&&mx<bx+160&&my>by&&my<by+45){
 
-    numPlayers=i
-    scores=[]
+numPlayers=i
+scores=[]
 
-    for(let p=0;p<numPlayers;p++){
-     let obj={}
-     cats.forEach(c=>obj[c]=null)
-     scores.push(obj)
-    }
+for(let p=0;p<numPlayers;p++){
+let obj={}
+cats.forEach(c=>obj[c]=null)
+scores.push(obj)
+}
 
-    startTurn()
-    gameState=PLAYING
-   }
-  }
- }
+startTurn()
+gameState=PLAYING
+}
+}
+}
 
- else if(gameState==PLAYING){
+else if(gameState==PLAYING){
 
-  for(let i=0;i<5;i++){
-   let x=40+i*60
-   if(mx>x && mx<x+45 && my>60 && my<105){
-    kept[i]=!kept[i]
-   }
-  }
+for(let i=0;i<5;i++){
+let x=80+i*150
+if(mx>x&&mx<x+70&&my>90&&my<160){
+kept[i]=!kept[i]
+}
+}
 
-  if(mx>350 && mx<430 && my>60 && my<105 && rollsLeft>0){
+if(mx>760&&mx<860&&my>90&&my<160&&rollsLeft>0&&!rolling){
+rolling=true
+rollTimer=25
+rollsLeft--
+}
 
-   for(let i=0;i<5;i++){
-    if(!kept[i]) dice[i]=rollDie()
-   }
-
-   rollsLeft--
-  }
-
-  for(let i=0;i<cats.length;i++){
-
-   let x=10+i*60
-   let y=280
-
-   if(mx>x && mx<x+55 && my>y && my<y+140){
-
-    let c=cats[i]
-
-    if(scores[pIdx][c]==null){
-
-     scores[pIdx][c]=getVal(c,dice)
-
-     if(checkGameOver()){
-      gameState=GAME_OVER
-     }else{
-      pIdx=(pIdx+1)%numPlayers
-      startTurn()
-     }
-    }
-   }
-  }
- }
-
- else if(gameState==GAME_OVER){
-
-  if(mx>W/2-60 && mx<W/2+60 && my>400 && my<440){
-   gameState=MENU
-  }
- }
+}
 
 })
 
+function drawButton(x,y,w,h,text){
+
+let grad=ctx.createLinearGradient(x,y,x,y+h)
+grad.addColorStop(0,"#ffffff")
+grad.addColorStop(1,"#dcdcdc")
+
+ctx.fillStyle=grad
+ctx.fillRect(x,y,w,h)
+
+ctx.strokeStyle="#333"
+ctx.strokeRect(x,y,w,h)
+
+ctx.fillStyle="#000"
+ctx.font="18px Arial"
+ctx.fillText(text,x+w/2-ctx.measureText(text).width/2,y+27)
+
+}
+
 function draw(){
 
- ctx.clearRect(0,0,W,H)
+ctx.clearRect(0,0,W,H)
 
- ctx.font="20px Arial"
+if(rolling){
 
- if(gameState==MENU){
+rollTimer--
 
-  ctx.font="40px Arial"
-  ctx.fillStyle="black"
-  ctx.fillText("YATZY",W/2-60,80)
+for(let i=0;i<5;i++){
+if(!kept[i]) dice[i]=rollDie()
+}
 
-  ctx.font="18px Arial"
+if(rollTimer<=0) rolling=false
+}
 
-  for(let i=1;i<=4;i++){
+if(gameState==MENU){
 
-   let x=W/2-60
-   let y=100+i*60
+ctx.fillStyle="#111"
+ctx.font="48px Arial"
+ctx.fillText("YATZY",W/2-80,90)
 
-   ctx.fillStyle="#ddd"
-   ctx.fillRect(x,y,120,40)
+for(let i=1;i<=4;i++){
+drawButton(W/2-80,120+i*60,160,45,i+" Player"+(i>1?"s":""))
+}
 
-   ctx.fillStyle="black"
-   ctx.fillText(i+" Player"+(i>1?"s":""),x+25,y+25)
-  }
- }
+}
 
- else if(gameState==PLAYING){
+else if(gameState==PLAYING){
 
-  ctx.fillStyle=colors[pIdx]
-  ctx.fillText("P"+(pIdx+1)+" TURN | ROLLS: "+rollsLeft,40,30)
+ctx.fillStyle=colors[pIdx]
+ctx.font="22px Arial"
+ctx.fillText("Player "+(pIdx+1)+" Turn | Rolls: "+rollsLeft,40,40)
 
-  for(let i=0;i<5;i++){
+for(let i=0;i<5;i++){
 
-   let x=40+i*60
+let x=80+i*150
+let y=90
 
-   ctx.fillStyle=kept[i]?"#b4ffb4":"white"
-   ctx.fillRect(x,60,45,45)
+let shakeX=rolling&&!kept[i]?Math.random()*8-4:0
+let shakeY=rolling&&!kept[i]?Math.random()*8-4:0
 
-   ctx.strokeRect(x,60,45,45)
+drawDie(x+shakeX,y+shakeY,dice[i],kept[i])
 
-   ctx.fillStyle="black"
-   ctx.fillText(dice[i],x+18,88)
-  }
+}
 
-  ctx.fillStyle="#ddd"
-  ctx.fillRect(350,60,80,45)
+drawButton(760,90,100,70,"ROLL")
 
-  ctx.fillStyle="black"
-  ctx.fillText("ROLL",370,90)
+}
 
-  for(let i=0;i<cats.length;i++){
+else if(gameState==GAME_OVER){
 
-   let x=10+i*60
-   let y=280
+ctx.fillStyle="#222"
+ctx.font="36px Arial"
+ctx.fillText("Game Over!",W/2-90,80)
 
-   ctx.fillStyle=i%2?"white":"#ddd"
-   ctx.fillRect(x,y,55,140)
+updateConfetti()
+drawConfetti()
 
-   ctx.strokeRect(x,y,55,140)
+}
 
-   ctx.fillStyle="black"
-   ctx.fillText(cats[i],x+10,y+20)
+requestAnimationFrame(draw)
 
-   for(let p=0;p<numPlayers;p++){
-
-    let val=scores[p][cats[i]]
-
-    let text="-"
-
-    if(val!=null) text=val
-    else if(p==pIdx) text=getVal(cats[i],dice)
-
-    ctx.fillStyle=val!=null?"black":(p==pIdx?colors[p]:"#aaa")
-
-    ctx.fillText(text,x+18,y+40+p*25)
-   }
-  }
-
-  for(let p=0;p<numPlayers;p++){
-
-   let total=0
-
-   Object.values(scores[p]).forEach(v=>{
-    if(v!=null) total+=v
-   })
-
-   ctx.fillStyle=colors[p]
-   ctx.fillText("P"+(p+1)+": "+total,20+p*120,480)
-  }
- }
-
- else if(gameState==GAME_OVER){
-
-  ctx.font="30px Arial"
-  ctx.fillStyle="black"
-  ctx.fillText("FINAL SCORES",W/2-120,80)
-
-  let final=[]
-
-  for(let p=0;p<numPlayers;p++){
-
-   let total=0
-
-   Object.values(scores[p]).forEach(v=>{
-    if(v!=null) total+=v
-   })
-
-   final.push({p:p+1,s:total})
-  }
-
-  final.sort((a,b)=>b.s-a.s)
-
-  ctx.font="20px Arial"
-
-  final.forEach((r,i)=>{
-
-   ctx.fillStyle=colors[r.p-1]
-   ctx.fillText((i+1)+". Player "+r.p+": "+r.s+" points",W/2-120,160+i*40)
-  })
-
-  ctx.fillStyle="#ddd"
-  ctx.fillRect(W/2-60,400,120,40)
-
-  ctx.fillStyle="black"
-  ctx.fillText("RESTART",W/2-40,425)
- }
-
- requestAnimationFrame(draw)
 }
 
 draw()
 
 </script>
+
 </body>
 </html>
