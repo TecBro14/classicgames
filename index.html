@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>4 Player Advanced Yatzy</title>
+<style>
+body{margin:0;background:white;font-family:Arial}
+canvas{display:block;margin:auto;background:white}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
+
+canvas.width = window.innerWidth
+canvas.height = 520
+
+const W = canvas.width
+const H = canvas.height
+
+const colors = ["blue","red","green","purple"]
+
+const MENU = 0
+const PLAYING = 1
+const GAME_OVER = 2
+
+let gameState = MENU
+
+let numPlayers = 4
+let pIdx = 0
+
+let dice = [0,0,0,0,0]
+let kept = [false,false,false,false,false]
+
+let rollsLeft = 2
+
+const cats = ["1s","2s","3s","4s","5s","6s","3k","4k","FH","SS","LS","YZ","CH"]
+
+let scores = []
+
+function rollDie(){
+ return Math.floor(Math.random()*6)+1
+}
+
+function startTurn(){
+ for(let i=0;i<5;i++) dice[i]=rollDie()
+ while(new Set(dice).size==1){
+  for(let i=0;i<5;i++) dice[i]=rollDie()
+ }
+ kept=[false,false,false,false,false]
+ rollsLeft=2
+}
+
+function getVal(c,d){
+
+ let counts={}
+ d.forEach(v=>counts[v]=(counts[v]||0)+1)
+
+ let sum=d.reduce((a,b)=>a+b)
+
+ if(c.endsWith("s")){
+  let n=parseInt(c)
+  return d.filter(x=>x==n).length*n
+ }
+
+ if(c=="3k"){
+  return Object.values(counts).some(v=>v>=3)?sum:0
+ }
+
+ if(c=="4k"){
+  return Object.values(counts).some(v=>v>=4)?sum:0
+ }
+
+ if(c=="FH"){
+  let v=Object.values(counts).sort()
+  if(v.toString()=="2,3" || v.includes(5)) return 25
+  return 0
+ }
+
+ if(c=="SS"){
+  const s=[[1,2,3,4],[2,3,4,5],[3,4,5,6]]
+  return s.some(a=>a.every(x=>d.includes(x)))?30:0
+ }
+
+ if(c=="LS"){
+  let s=[...new Set(d)]
+  return s.length==5 && Math.max(...d)-Math.min(...d)==4?40:0
+ }
+
+ if(c=="YZ"){
+  return new Set(d).size==1?50:0
+ }
+
+ return sum
+}
+
+function checkGameOver(){
+ for(let p=0;p<numPlayers;p++){
+  for(let c of cats){
+   if(scores[p][c]==null) return false
+  }
+ }
+ return true
+}
+
+canvas.addEventListener("click",e=>{
+
+ let rect=canvas.getBoundingClientRect()
+ let mx=e.clientX-rect.left
+ let my=e.clientY-rect.top
+
+ if(gameState==MENU){
+
+  for(let i=1;i<=4;i++){
+
+   let bx=W/2-60
+   let by=100+i*60
+
+   if(mx>bx && mx<bx+120 && my>by && my<by+40){
+
+    numPlayers=i
+    scores=[]
+
+    for(let p=0;p<numPlayers;p++){
+     let obj={}
+     cats.forEach(c=>obj[c]=null)
+     scores.push(obj)
+    }
+
+    startTurn()
+    gameState=PLAYING
+   }
+  }
+ }
+
+ else if(gameState==PLAYING){
+
+  for(let i=0;i<5;i++){
+   let x=40+i*60
+   if(mx>x && mx<x+45 && my>60 && my<105){
+    kept[i]=!kept[i]
+   }
+  }
+
+  if(mx>350 && mx<430 && my>60 && my<105 && rollsLeft>0){
+
+   for(let i=0;i<5;i++){
+    if(!kept[i]) dice[i]=rollDie()
+   }
+
+   rollsLeft--
+  }
+
+  for(let i=0;i<cats.length;i++){
+
+   let x=10+i*60
+   let y=280
+
+   if(mx>x && mx<x+55 && my>y && my<y+140){
+
+    let c=cats[i]
+
+    if(scores[pIdx][c]==null){
+
+     scores[pIdx][c]=getVal(c,dice)
+
+     if(checkGameOver()){
+      gameState=GAME_OVER
+     }else{
+      pIdx=(pIdx+1)%numPlayers
+      startTurn()
+     }
+    }
+   }
+  }
+ }
+
+ else if(gameState==GAME_OVER){
+
+  if(mx>W/2-60 && mx<W/2+60 && my>400 && my<440){
+   gameState=MENU
+  }
+ }
+
+})
+
+function draw(){
+
+ ctx.clearRect(0,0,W,H)
+
+ ctx.font="20px Arial"
+
+ if(gameState==MENU){
+
+  ctx.font="40px Arial"
+  ctx.fillStyle="black"
+  ctx.fillText("YATZY",W/2-60,80)
+
+  ctx.font="18px Arial"
+
+  for(let i=1;i<=4;i++){
+
+   let x=W/2-60
+   let y=100+i*60
+
+   ctx.fillStyle="#ddd"
+   ctx.fillRect(x,y,120,40)
+
+   ctx.fillStyle="black"
+   ctx.fillText(i+" Player"+(i>1?"s":""),x+25,y+25)
+  }
+ }
+
+ else if(gameState==PLAYING){
+
+  ctx.fillStyle=colors[pIdx]
+  ctx.fillText("P"+(pIdx+1)+" TURN | ROLLS: "+rollsLeft,40,30)
+
+  for(let i=0;i<5;i++){
+
+   let x=40+i*60
+
+   ctx.fillStyle=kept[i]?"#b4ffb4":"white"
+   ctx.fillRect(x,60,45,45)
+
+   ctx.strokeRect(x,60,45,45)
+
+   ctx.fillStyle="black"
+   ctx.fillText(dice[i],x+18,88)
+  }
+
+  ctx.fillStyle="#ddd"
+  ctx.fillRect(350,60,80,45)
+
+  ctx.fillStyle="black"
+  ctx.fillText("ROLL",370,90)
+
+  for(let i=0;i<cats.length;i++){
+
+   let x=10+i*60
+   let y=280
+
+   ctx.fillStyle=i%2?"white":"#ddd"
+   ctx.fillRect(x,y,55,140)
+
+   ctx.strokeRect(x,y,55,140)
+
+   ctx.fillStyle="black"
+   ctx.fillText(cats[i],x+10,y+20)
+
+   for(let p=0;p<numPlayers;p++){
+
+    let val=scores[p][cats[i]]
+
+    let text="-"
+
+    if(val!=null) text=val
+    else if(p==pIdx) text=getVal(cats[i],dice)
+
+    ctx.fillStyle=val!=null?"black":(p==pIdx?colors[p]:"#aaa")
+
+    ctx.fillText(text,x+18,y+40+p*25)
+   }
+  }
+
+  for(let p=0;p<numPlayers;p++){
+
+   let total=0
+
+   Object.values(scores[p]).forEach(v=>{
+    if(v!=null) total+=v
+   })
+
+   ctx.fillStyle=colors[p]
+   ctx.fillText("P"+(p+1)+": "+total,20+p*120,480)
+  }
+ }
+
+ else if(gameState==GAME_OVER){
+
+  ctx.font="30px Arial"
+  ctx.fillStyle="black"
+  ctx.fillText("FINAL SCORES",W/2-120,80)
+
+  let final=[]
+
+  for(let p=0;p<numPlayers;p++){
+
+   let total=0
+
+   Object.values(scores[p]).forEach(v=>{
+    if(v!=null) total+=v
+   })
+
+   final.push({p:p+1,s:total})
+  }
+
+  final.sort((a,b)=>b.s-a.s)
+
+  ctx.font="20px Arial"
+
+  final.forEach((r,i)=>{
+
+   ctx.fillStyle=colors[r.p-1]
+   ctx.fillText((i+1)+". Player "+r.p+": "+r.s+" points",W/2-120,160+i*40)
+  })
+
+  ctx.fillStyle="#ddd"
+  ctx.fillRect(W/2-60,400,120,40)
+
+  ctx.fillStyle="black"
+  ctx.fillText("RESTART",W/2-40,425)
+ }
+
+ requestAnimationFrame(draw)
+}
+
+draw()
+
+</script>
+</body>
+</html>
