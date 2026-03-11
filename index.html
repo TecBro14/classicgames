@@ -9,7 +9,7 @@
 
 body{
 margin:0;
-background:#f2f2f2;
+background:#f3f3f3;
 font-family:Arial;
 display:flex;
 justify-content:center;
@@ -34,99 +34,67 @@ max-width:1100px;
 
 <script>
 
-/* -------------------------
-GITHUB LEADERBOARD SETTINGS
-------------------------- */
-
-const GITHUB_USER="TecBro14"
-const GITHUB_REPO="yatzy-fun"
-const FILE_PATH="leaderboard.json"
-const TOKEN="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"
-
-let leaderboard=[]
-
-async function loadLeaderboard(){
-
-const res=await fetch(
-`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FILE_PATH}`
-)
-
-const data=await res.json()
-
-const content=atob(data.content)
-
-leaderboard=JSON.parse(content)
-
-leaderboard.sort((a,b)=>b.score-a.score)
-
-leaderboard=leaderboard.slice(0,10)
-
-return data.sha
-
-}
-
-async function submitScore(name,score){
-
-const res=await fetch(
-`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FILE_PATH}`
-)
-
-const data=await res.json()
-
-let content=JSON.parse(atob(data.content))
-
-content.push({name,score})
-
-content.sort((a,b)=>b.score-a.score)
-
-content=content.slice(0,10)
-
-await fetch(
-`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FILE_PATH}`,
-{
-method:"PUT",
-headers:{
-Authorization:`Bearer ${TOKEN}`,
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-message:"update leaderboard",
-content:btoa(JSON.stringify(content,null,2)),
-sha:data.sha
-})
-}
-)
-
-leaderboard=content
-
-}
-
-/* -------------------------
-GAME
-------------------------- */
-
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
 const MENU=0
-const PLAYING=1
+const PLAYER_SELECT=1
+const PLAYING=2
 
 let state=MENU
 
 let username=""
+let numPlayers=4
+let pIdx=0
 
 let dice=[1,2,3,4,5]
 let kept=[false,false,false,false,false]
 
 let rollsLeft=2
+let rolling=false
+let rollTimer=0
+
+const colors=["#3498db","#e74c3c","#2ecc71","#9b59b6"]
+
+const cats=["1s","2s","3s","4s","5s","6s","3k","4k","FH","SS","LS","YZ","CH"]
+
+let scores=[]
+
+let leaderboard=[]
+
+async function loadLeaderboard(){
+
+try{
+
+const res=await fetch("leaderboard.json")
+
+leaderboard=await res.json()
+
+leaderboard.sort((a,b)=>b.score-a.score)
+
+leaderboard=leaderboard.slice(0,10)
+
+}catch(e){
+
+leaderboard=[]
+
+}
+
+}
 
 function rollDie(){
+
 return Math.floor(Math.random()*6)+1
+
 }
 
 function startTurn(){
 
 for(let i=0;i<5;i++) dice[i]=rollDie()
+
+while(new Set(dice).size==1){
+for(let i=0;i<5;i++) dice[i]=rollDie()
+}
 
 kept=[false,false,false,false,false]
 
@@ -134,56 +102,44 @@ rollsLeft=2
 
 }
 
-canvas.onclick=e=>{
+function getVal(c,d){
 
-let rect=canvas.getBoundingClientRect()
+let counts={}
+d.forEach(v=>counts[v]=(counts[v]||0)+1)
 
-let mx=(e.clientX-rect.left)*(canvas.width/rect.width)
-let my=(e.clientY-rect.top)*(canvas.height/rect.height)
+let sum=d.reduce((a,b)=>a+b)
 
-if(state==MENU){
+if(c.endsWith("s")){
+let n=parseInt(c)
+return d.filter(x=>x==n).length*n
+}
 
-username=prompt("Enter username for leaderboard:")
+if(c=="3k") return Object.values(counts).some(v=>v>=3)?sum:0
+if(c=="4k") return Object.values(counts).some(v=>v>=4)?sum:0
 
-if(!username) username="Player"
+if(c=="FH"){
+let v=Object.values(counts).sort()
+if(v.toString()=="2,3"||v.includes(5)) return 25
+return 0
+}
 
-startTurn()
+if(c=="SS"){
+let s=[[1,2,3,4],[2,3,4,5],[3,4,5,6]]
+return s.some(a=>a.every(x=>d.includes(x)))?30:0
+}
 
-state=PLAYING
+if(c=="LS"){
+let s=[...new Set(d)]
+return s.length==5 && Math.max(...d)-Math.min(...d)==4?40:0
+}
+
+if(c=="YZ") return new Set(d).size==1?50:0
+
+return sum
 
 }
 
-else if(state==PLAYING){
-
-for(let i=0;i<5;i++){
-
-let x=50+i*80
-
-if(mx>x && mx<x+60 && my>80 && my<140){
-
-kept[i]=!kept[i]
-
-}
-
-}
-
-if(mx>460 && mx<560 && my>80 && my<140 && rollsLeft>0){
-
-for(let i=0;i<5;i++){
-
-if(!kept[i]) dice[i]=rollDie()
-
-}
-
-rollsLeft--
-
-}
-
-}
-
-}
-
-function drawRounded(x,y,w,h,r){
+function roundRect(x,y,w,h,r){
 
 ctx.beginPath()
 ctx.moveTo(x+r,y)
@@ -196,37 +152,171 @@ ctx.quadraticCurveTo(x,y+h,x,y+h-r)
 ctx.lineTo(x,y+r)
 ctx.quadraticCurveTo(x,y,x+r,y)
 ctx.closePath()
-
 ctx.fill()
 ctx.stroke()
 
 }
 
-function draw(){
+canvas.onclick=e=>{
 
-ctx.clearRect(0,0,canvas.width,canvas.height)
+let rect=canvas.getBoundingClientRect()
+
+let mx=(e.clientX-rect.left)*(canvas.width/rect.width)
+let my=(e.clientY-rect.top)*(canvas.height/rect.height)
 
 if(state==MENU){
 
-ctx.fillStyle="black"
-ctx.font="46px Arial"
+let savedUser=localStorage.getItem("yatzyUser")
 
-ctx.fillText("Yatzy-Fun",420,120)
+if(savedUser){
+
+username=savedUser
+
+}else{
+
+username=prompt("Enter username:")
+
+if(!username) username="Player"
+
+localStorage.setItem("yatzyUser",username)
+
+}
+
+state=PLAYER_SELECT
+
+}
+
+else if(state==PLAYER_SELECT){
+
+for(let i=1;i<=4;i++){
+
+let y=140+i*60
+
+if(mx>460 && mx<590 && my>y && my<y+40){
+
+numPlayers=i
+
+scores=[]
+
+for(let p=0;p<numPlayers;p++){
+
+let obj={}
+
+cats.forEach(c=>obj[c]=null)
+
+scores.push(obj)
+
+}
+
+startTurn()
+
+state=PLAYING
+
+}
+
+}
+
+}
+
+else if(state==PLAYING){
+
+for(let i=0;i<5;i++){
+
+let x=40+i*70
+
+if(mx>x && mx<x+55 && my>70 && my<125){
+
+kept[i]=!kept[i]
+
+}
+
+}
+
+if(mx>400 && mx<480 && my>70 && my<125 && rollsLeft>0){
+
+rolling=true
+
+rollTimer=18
+
+rollsLeft--
+
+}
+
+if(mx>950 && mx<1050 && my>20 && my<50){
+
+state=MENU
+
+}
+
+for(let i=0;i<cats.length;i++){
+
+let x=10+i*70
+
+if(mx>x && mx<x+60 && my>300 && my<440){
+
+let c=cats[i]
+
+if(scores[pIdx][c]==null){
+
+scores[pIdx][c]=getVal(c,dice)
+
+pIdx=(pIdx+1)%numPlayers
+
+startTurn()
+
+}
+
+}
+
+}
+
+}
+
+}
+
+function update(){
+
+if(rolling){
+
+rollTimer--
+
+for(let i=0;i<5;i++){
+
+if(!kept[i]) dice[i]=rollDie()
+
+}
+
+if(rollTimer<=0) rolling=false
+
+}
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,1100,540)
+
+if(state==MENU){
+
+ctx.font="42px Arial"
+
+ctx.fillText("Yatzy-Fun",450,100)
 
 ctx.fillStyle="#ddd"
 
-drawRounded(470,240,160,50,12)
+roundRect(480,220,140,40,10)
 
 ctx.fillStyle="black"
-ctx.font="20px Arial"
 
-ctx.fillText("PLAY",525,272)
+ctx.font="18px Arial"
+
+ctx.fillText("PLAY",525,245)
 
 /* leaderboard */
 
-ctx.font="22px Arial"
+ctx.font="20px Arial"
 
-ctx.fillText("Global Leaderboard",780,120)
+ctx.fillText("Leaderboard",820,120)
 
 ctx.font="16px Arial"
 
@@ -236,51 +326,123 @@ let e=leaderboard[i]
 
 ctx.fillText(
 (i+1)+". "+e.name+" - "+e.score,
-780,
-160+i*28
+800,
+150+i*26
 )
 
 }
 
 }
 
-if(state==PLAYING){
+else if(state==PLAYER_SELECT){
+
+ctx.font="28px Arial"
+
+ctx.fillText("Select Players",430,80)
+
+for(let i=1;i<=4;i++){
+
+let y=140+i*60
+
+ctx.fillStyle="#ddd"
+
+roundRect(460,y,130,40,10)
+
+ctx.fillStyle="black"
+
+ctx.font="16px Arial"
+
+ctx.fillText(i+" Player"+(i>1?"s":""),485,y+25)
+
+}
+
+}
+
+else if(state==PLAYING){
+
+ctx.fillStyle=colors[pIdx]
+
+ctx.font="18px Arial"
+
+ctx.fillText("Player: "+username,850,30)
+
+ctx.fillText("P"+(pIdx+1)+" TURN | ROLLS: "+rollsLeft,40,30)
+
+ctx.fillStyle="#ddd"
+
+roundRect(950,20,100,30,8)
+
+ctx.fillStyle="black"
+
+ctx.fillText("Restart",970,40)
+
+for(let i=0;i<5;i++){
+
+let x=40+i*70
+
+ctx.fillStyle=kept[i]?"#c8f7c5":"#fff"
+
+roundRect(x,70,55,55,10)
 
 ctx.fillStyle="black"
 
 ctx.font="20px Arial"
 
-ctx.fillText("Rolls Left: "+rollsLeft,50,40)
-
-for(let i=0;i<5;i++){
-
-let x=50+i*80
-
-ctx.fillStyle=kept[i]?"#c8f7c5":"#fff"
-
-drawRounded(x,80,60,60,10)
-
-ctx.fillStyle="black"
-
-ctx.font="22px Arial"
-
-ctx.fillText(dice[i],x+24,115)
+ctx.fillText(dice[i],x+22,105)
 
 }
 
 ctx.fillStyle="#ddd"
 
-drawRounded(460,80,100,60,10)
+roundRect(400,70,80,55,10)
 
 ctx.fillStyle="black"
 
-ctx.fillText("ROLL",482,115)
+ctx.fillText("ROLL",415,105)
+
+/* scoring chart */
+
+ctx.font="14px Arial"
+
+for(let i=0;i<cats.length;i++){
+
+let x=10+i*70
+
+for(let p=0;p<numPlayers;p++){
+
+let val=scores[p][cats[i]]
+
+let y=320+p*25
+
+ctx.fillStyle=val!=null?colors[p]:"#f0f0f0"
+
+ctx.fillRect(x,y,60,24)
+
+ctx.strokeRect(x,y,60,24)
+
+ctx.fillStyle="black"
+
+let disp="-"
+
+if(val!=null) disp=val
+
+else if(p==pIdx) disp=getVal(cats[i],dice)
+
+ctx.fillText(disp,x+22,y+17)
+
+}
+
+ctx.fillText(cats[i],x+20,310)
+
+}
 
 }
 
 }
 
 function loop(){
+
+update()
 
 draw()
 
