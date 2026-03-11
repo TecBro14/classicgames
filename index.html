@@ -3,13 +3,14 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Advanced Yatzy</title>
+<title>Yatzy</title>
 
 <style>
+
 body{
 margin:0;
 font-family:Arial;
-background:#f2f2f2;
+background:#f3f3f3;
 display:flex;
 justify-content:center;
 align-items:center;
@@ -19,8 +20,9 @@ height:100vh;
 canvas{
 background:white;
 border-radius:14px;
-box-shadow:0 10px 30px rgba(0,0,0,.2);
+box-shadow:0 15px 40px rgba(0,0,0,.25);
 }
+
 </style>
 
 </head>
@@ -322,10 +324,24 @@ for(let p=0;p<numPlayers;p++){
 
 let val=scores[p][cats[i]]
 let disp="-"
+let color="#aaa"
 
-if(val!=null) disp=val
-else if(p==pIdx) disp=getVal(cats[i],dice)
+if(val!=null){
 
+disp=val
+color=colors[p]
+
+}
+
+else if(p==pIdx){
+
+disp=getVal(cats[i],dice)
+color="#777"
+
+}
+
+ctx.fillStyle=color
+ctx.font = val!=null ? "bold 14px Arial" : "14px Arial"
 ctx.fillText(disp,x+20,320+p*25)
 
 }
