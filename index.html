@@ -3,7 +3,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Yatzy</title>
+<title>Yatzy-Fun</title>
 
 <style>
 
@@ -57,6 +57,15 @@ const colors=["#3498db","#e74c3c","#2ecc71","#9b59b6"]
 const cats=["1s","2s","3s","4s","5s","6s","3k","4k","FH","SS","LS","YZ","CH"]
 
 let scores=[]
+
+function resetGame(){
+state=MENU
+pIdx=0
+dice=[1,2,3,4,5]
+kept=[false,false,false,false,false]
+rollsLeft=2
+scores=[]
+}
 
 function rollDie(){
 return Math.floor(Math.random()*6)+1
@@ -190,6 +199,10 @@ rollsLeft--
 
 }
 
+if(mx>880 && mx<980 && my>20 && my<50){
+resetGame()
+}
+
 for(let i=0;i<cats.length;i++){
 
 let x=10+i*60
@@ -246,7 +259,7 @@ if(state==MENU){
 
 ctx.font="42px Arial"
 ctx.fillStyle="black"
-ctx.fillText("YATZY",440,100)
+ctx.fillText("Yatzy-Fun",420,100)
 
 ctx.fillStyle="#ddd"
 roundRect(440,220,120,40,10)
@@ -285,6 +298,12 @@ ctx.fillStyle=colors[pIdx]
 ctx.font="18px Arial"
 ctx.fillText("P"+(pIdx+1)+" TURN | ROLLS: "+rollsLeft,40,30)
 
+ctx.fillStyle="#ddd"
+roundRect(880,20,100,30,8)
+ctx.fillStyle="black"
+ctx.font="14px Arial"
+drawCentered("Restart",880,40,100)
+
 for(let i=0;i<5;i++){
 
 let x=40+i*60
@@ -305,79 +324,5 @@ roundRect(350,60,80,45,10)
 
 ctx.fillStyle="black"
 ctx.font="16px Arial"
-drawCentered("ROLL",350,88,80)
-
-for(let i=0;i<cats.length;i++){
-
-let x=10+i*60
-
-for(let p=0;p<numPlayers;p++){
-
-let val=scores[p][cats[i]]
-
-let y=300+p*25
-
-if(val!=null){
-
-ctx.fillStyle=colors[p]
-
-}else if(p==pIdx){
-
-ctx.fillStyle="#d0d0d0"
-
-}else{
-
-ctx.fillStyle="#ffffff"
-
-}
-
-ctx.fillRect(x,y,55,24)
-ctx.strokeRect(x,y,55,24)
-
-ctx.fillStyle="black"
-
-let disp="-"
-
-if(val!=null) disp=val
-else if(p==pIdx) disp=getVal(cats[i],dice)
-
-ctx.fillText(disp,x+18,y+17)
-
-}
-
-ctx.fillStyle="black"
-ctx.font="14px Arial"
-ctx.fillText(cats[i],x+18,295)
-
-}
-
-for(let p=0;p<numPlayers;p++){
-
-let total=0
-
-for(let c of cats){
-if(scores[p][c]!=null) total+=scores[p][c]
-}
-
-ctx.fillStyle=colors[p]
-ctx.fillText("P"+(p+1)+": "+total,20+p*120,470)
-
-}
-
-}
-
-}
-
-function loop(){
-update()
-draw()
-requestAnimationFrame(loop)
-}
-
-loop()
-
-</script>
-
-</body>
-</html>
+drawCentered
 ```
