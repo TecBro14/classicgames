@@ -18,10 +18,10 @@ align-items:center;
 }
 
 canvas{
-background:rgba(255,255,255,.2);
-backdrop-filter:blur(14px);
-border-radius:18px;
-box-shadow:0 20px 50px rgba(0,0,0,.6);
+background:rgba(255,255,255,.18);
+backdrop-filter:blur(18px);
+border-radius:20px;
+box-shadow:0 20px 60px rgba(0,0,0,.7);
 }
 
 </style>
@@ -29,7 +29,7 @@ box-shadow:0 20px 50px rgba(0,0,0,.6);
 
 <body>
 
-<canvas id="game" width="900" height="520"></canvas>
+<canvas id="game" width="1100" height="560"></canvas>
 
 <script>
 
@@ -41,6 +41,8 @@ const PLAYER_SELECT=1
 const PLAYING=2
 
 let state=MENU
+let numPlayers=4
+let player=0
 
 let dice=[1,2,3,4,5]
 let kept=[false,false,false,false,false]
@@ -49,21 +51,77 @@ let rolls=2
 let rolling=false
 let rollTimer=0
 
+const colors=["#3a7bff","#ff3a3a","#2ecc71","#b43aff"]
+
+const cats=["1s","2s","3s","4s","5s","6s","3k","4k","FH","SS","LS","YZ","CH"]
+
+let scores=[]
+
 function roll(){
 return Math.floor(Math.random()*6)+1
 }
 
+function startTurn(){
+
+for(let i=0;i<5;i++) dice[i]=roll()
+
+while(new Set(dice).size==1){
+for(let i=0;i<5;i++) dice[i]=roll()
+}
+
+kept=[false,false,false,false,false]
+rolls=2
+
+}
+
+function getScore(cat,d){
+
+let counts={}
+d.forEach(v=>counts[v]=(counts[v]||0)+1)
+
+let sum=d.reduce((a,b)=>a+b)
+
+if(cat.endsWith("s")){
+let n=parseInt(cat)
+return d.filter(x=>x==n).length*n
+}
+
+if(cat=="3k") return Object.values(counts).some(v=>v>=3)?sum:0
+if(cat=="4k") return Object.values(counts).some(v=>v>=4)?sum:0
+
+if(cat=="FH"){
+let vals=Object.values(counts).sort()
+if(vals.toString()=="2,3"||vals.includes(5)) return 25
+return 0
+}
+
+if(cat=="SS"){
+let sets=[[1,2,3,4],[2,3,4,5],[3,4,5,6]]
+return sets.some(s=>s.every(x=>d.includes(x)))?30:0
+}
+
+if(cat=="LS"){
+let s=[...new Set(d)]
+return s.length==5 && Math.max(...d)-Math.min(...d)==4?40:0
+}
+
+if(cat=="YZ") return new Set(d).size==1?50:0
+
+return sum
+
+}
+
 function drawButton(x,y,w,h,text){
 
-ctx.fillStyle="rgba(255,255,255,.3)"
+ctx.fillStyle="rgba(255,255,255,.25)"
 ctx.fillRect(x,y,w,h)
 
 ctx.strokeStyle="white"
 ctx.strokeRect(x,y,w,h)
 
 ctx.fillStyle="white"
-ctx.font="20px Arial"
-ctx.fillText(text,x+w/2-ctx.measureText(text).width/2,y+28)
+ctx.font="18px Arial"
+ctx.fillText(text,x+w/2-ctx.measureText(text).width/2,y+27)
 
 }
 
@@ -73,7 +131,7 @@ ctx.save()
 
 if(keep){
 ctx.shadowColor="#00ff88"
-ctx.shadowBlur=20
+ctx.shadowBlur=18
 }
 
 ctx.fillStyle="white"
@@ -96,7 +154,7 @@ let my=e.clientY-rect.top
 
 if(state==MENU){
 
-if(mx>350&&mx<550&&my>240&&my<290){
+if(mx>450&&mx<650&&my>250&&my<300){
 state=PLAYER_SELECT
 }
 
@@ -108,8 +166,20 @@ for(let i=1;i<=4;i++){
 
 let y=160+i*60
 
-if(mx>350&&mx<550&&my>y&&my<y+40){
+if(mx>450&&mx<650&&my>y&&my<y+40){
+
+numPlayers=i
+
+scores=[]
+for(let p=0;p<numPlayers;p++){
+let obj={}
+cats.forEach(c=>obj[c]=null)
+scores.push(obj)
+}
+
+startTurn()
 state=PLAYING
+
 }
 
 }
@@ -128,11 +198,32 @@ kept[i]=!kept[i]
 
 }
 
-if(mx>740&&mx<840&&my>120&&my<180&&rolls>0&&!rolling){
+if(mx>820&&mx<920&&my>120&&my<180&&rolls>0&&!rolling){
 
 rolling=true
 rollTimer=20
 rolls--
+
+}
+
+for(let i=0;i<cats.length;i++){
+
+let y=250+i*22
+
+if(mx>820&&mx<1000&&my>y&&my<y+20){
+
+let cat=cats[i]
+
+if(scores[player][cat]==null){
+
+scores[player][cat]=getScore(cat,dice)
+
+player=(player+1)%numPlayers
+startTurn()
+
+}
+
+}
 
 }
 
@@ -150,9 +241,38 @@ for(let i=0;i<5;i++){
 if(!kept[i]) dice[i]=roll()
 }
 
-if(rollTimer<=0){
-rolling=false
+if(rollTimer<=0) rolling=false
+
 }
+
+}
+
+function drawScoreboard(){
+
+ctx.fillStyle="rgba(255,255,255,.15)"
+ctx.fillRect(800,200,250,320)
+
+ctx.fillStyle="white"
+ctx.font="20px Arial"
+ctx.fillText("Score Chart",840,230)
+
+ctx.font="16px Arial"
+
+for(let i=0;i<cats.length;i++){
+
+let cat=cats[i]
+let y=260+i*22
+
+let val=scores[player][cat]
+
+if(val==null){
+val=getScore(cat,dice)
+ctx.fillStyle="#aaa"
+}else{
+ctx.fillStyle="white"
+}
+
+ctx.fillText(cat+": "+val,820,y)
 
 }
 
@@ -160,15 +280,15 @@ rolling=false
 
 function draw(){
 
-ctx.clearRect(0,0,900,520)
+ctx.clearRect(0,0,1100,560)
 
 if(state==MENU){
 
 ctx.fillStyle="white"
-ctx.font="48px Arial"
-ctx.fillText("YATZY",360,150)
+ctx.font="50px Arial"
+ctx.fillText("YATZY",500,160)
 
-drawButton(350,240,200,50,"PLAY")
+drawButton(450,250,200,50,"PLAY")
 
 }
 
@@ -176,23 +296,24 @@ else if(state==PLAYER_SELECT){
 
 ctx.fillStyle="white"
 ctx.font="32px Arial"
-ctx.fillText("Select Players",330,120)
+ctx.fillText("Select Players",450,120)
 
 for(let i=1;i<=4;i++){
-drawButton(350,160+i*60,200,40,i+" Player"+(i>1?"s":""))
+drawButton(450,160+i*60,200,40,i+" Player"+(i>1?"s":""))
 }
 
 }
 
 else if(state==PLAYING){
 
-ctx.fillStyle="white"
-ctx.font="20px Arial"
-ctx.fillText("Rolls Left: "+rolls,50,60)
+ctx.fillStyle=colors[player]
+ctx.font="22px Arial"
+ctx.fillText("Player "+(player+1)+" Turn | Rolls: "+rolls,50,60)
 
 for(let i=0;i<5;i++){
 
 let x=140+i*120
+
 let shakeX=rolling&&!kept[i]?Math.random()*6-3:0
 let shakeY=rolling&&!kept[i]?Math.random()*6-3:0
 
@@ -200,7 +321,9 @@ drawDice(x+shakeX,120+shakeY,dice[i],kept[i])
 
 }
 
-drawButton(740,120,100,60,"ROLL")
+drawButton(820,120,100,60,"ROLL")
+
+drawScoreboard()
 
 }
 
