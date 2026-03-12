@@ -6,27 +6,30 @@
     <title>Yatzy</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --bg: #1a202c; --card: #2d3748; --accent: #f6e05e; --green: #48bb78; --blue: #4299e1; }
-        body { font-family: system-ui, sans-serif; text-align: center; background: var(--bg); color: white; margin: 0; padding: 20px; touch-action: manipulation; }
-        .container { max-width: 450px; margin: auto; background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+        :root { --bg: #1a202c; --card: #2d3748; --accent: #f6e05e; --green: #48bb78; --blue: #4299e1; --ghost: rgba(246, 224, 94, 0.3); }
+        body { font-family: system-ui, sans-serif; text-align: center; background: var(--bg); color: white; margin: 0; padding: 10px; touch-action: manipulation; }
+        .container { max-width: 450px; margin: auto; background: var(--card); padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .hidden { display: none !important; }
         
-        button { padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin: 5px; font-size: 1rem; width: 85%; }
+        button { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin: 5px; font-size: 1rem; width: 85%; }
         .btn-main { background: var(--green); color: white; }
         .btn-online { background: var(--blue); color: white; }
-        .btn-tuto { background: #718096; color: white; }
-        .btn-roll { background: var(--accent); color: black; width: 100%; font-size: 1.2rem; }
+        .btn-roll { background: var(--accent); color: black; width: 100%; font-size: 1.2rem; margin: 15px 0; }
 
-        .dice-row { display: flex; justify-content: center; gap: 8px; margin: 20px 0; }
-        .die { background: white; color: black; width: 55px; height: 55px; line-height: 55px; border-radius: 10px; font-size: 1.8rem; font-weight: bold; border: 4px solid transparent; }
+        .dice-row { display: flex; justify-content: center; gap: 6px; margin: 15px 0; }
+        .die { background: white; color: black; width: 50px; height: 50px; line-height: 50px; border-radius: 8px; font-size: 1.6rem; font-weight: bold; border: 4px solid transparent; }
         .die.held { border-color: var(--accent); background: #cbd5e0; }
         
-        table { width: 100%; margin-top: 20px; border-collapse: collapse; background: rgba(0,0,0,0.3); }
-        td { padding: 12px; border: 1px solid #4a5568; cursor: pointer; }
-        
-        /* Modal Style */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        .modal-content { background: var(--card); padding: 20px; border-radius: 15px; max-width: 80%; text-align: left; }
+        .scroll-area { max-height: 400px; overflow-y: auto; margin-top: 10px; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; background: rgba(0,0,0,0.2); font-size: 0.85rem; }
+        td { padding: 10px; border: 1px solid #4a5568; text-align: left; }
+        td:last-child { text-align: center; font-weight: bold; width: 60px; }
+        .ghost { color: var(--ghost); }
+        .solid { color: var(--accent); background: rgba(246, 224, 94, 0.1); }
+        .total-row { background: #1a202c; font-weight: bold; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: var(--card); padding: 20px; border-radius: 15px; max-width: 85%; text-align: left; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -35,19 +38,19 @@
     <h1>Yatzy</h1>
 
     <div id="screen-menu">
-        <button class="btn-main" onclick="startSinglePlayer()">Single Player</button>
-        <button class="btn-online" onclick="showOnlineSetup()">Play Online</button>
-        <button class="btn-tuto" onclick="toggleTuto(true)">How to Play</button>
+        <button class="btn-main" onclick="startSingle()">Single Player</button>
+        <button class="btn-online" onclick="showOnline()">Play Online</button>
+        <button style="background:#718096; color:white;" onclick="toggleTuto(true)">Scoring Guide</button>
     </div>
 
     <div id="screen-online" class="hidden">
-        <input type="text" id="name-in" placeholder="Your Name" style="padding:12px; border-radius:8px; width:80%; margin-bottom:10px;">
-        <button class="btn-online" onclick="hostRoom()">Create Room</button>
-        <input type="text" id="code-in" placeholder="5-Digit Code" style="padding:12px; border-radius:8px; width:80%; margin-top:10px;">
+        <input type="text" id="name-in" placeholder="Your Name" style="padding:12px; width:80%; border-radius:8px; border:none; margin-bottom:10px;">
+        <button class="btn-online" onclick="hostRoom()">Host Room</button>
+        <input type="text" id="code-in" placeholder="5-Digit Code" style="padding:12px; width:80%; border-radius:8px; border:none; margin-top:10px;">
         <button class="btn-main" onclick="joinRoom()">Connect</button>
         <div id="lobby-wait" class="hidden">
-            <p id="room-id">Code: ---</p>
-            <ul id="p-list" style="list-style:none; padding:0; color:var(--accent);"></ul>
+            <p id="room-id" style="color:var(--accent)"></p>
+            <ul id="p-list" style="list-style:none; padding:0;"></ul>
             <button id="host-start" class="btn-roll hidden" onclick="triggerStart()">START GAME</button>
         </div>
         <button onclick="location.reload()" style="background:none; color:grey;">← Back</button>
@@ -62,62 +65,65 @@
             <div class="die" id="d4" onclick="toggleDie(4)">?</div>
         </div>
         <button class="btn-roll" onclick="rollDice()">Roll Dice</button>
-        <p id="roll-status">Rolls left: 3</p>
-        <table>
-            <tr onclick="score('ones')"><td>Ones</td><td id="s-ones">-</td></tr>
-            <tr onclick="score('sixes')"><td>Sixes</td><td id="s-sixes">-</td></tr>
-            <tr style="background:#1a202c"><td>Total</td><td id="s-total">0</td></tr>
-        </table>
-        <button onclick="location.reload()" style="background:none; color:grey; margin-top:20px;">Exit</button>
+        <p id="roll-status" style="margin:0">Rolls left: 3</p>
+
+        <div class="scroll-area">
+            <table>
+                <tbody id="score-table">
+                    <tr onclick="confirmScore('1')"><td>Ones (1s)</td><td id="row-1">-</td></tr>
+                    <tr onclick="confirmScore('2')"><td>Twos (2s)</td><td id="row-2">-</td></tr>
+                    <tr onclick="confirmScore('3')"><td>Threes (3s)</td><td id="row-3">-</td></tr>
+                    <tr onclick="confirmScore('4')"><td>Fours (4s)</td><td id="row-4">-</td></tr>
+                    <tr onclick="confirmScore('5')"><td>Fives (5s)</td><td id="row-5">-</td></tr>
+                    <tr onclick="confirmScore('6')"><td>Sixes (6s)</td><td id="row-6">-</td></tr>
+                    <tr onclick="confirmScore('3k')"><td>3 of a Kind (3K)</td><td id="row-3k">-</td></tr>
+                    <tr onclick="confirmScore('4k')"><td>4 of a Kind (4K)</td><td id="row-4k">-</td></tr>
+                    <tr onclick="confirmScore('fh')"><td>Full House (FH)</td><td id="row-fh">-</td></tr>
+                    <tr onclick="confirmScore('ss')"><td>Small Straight (SS)</td><td id="row-ss">-</td></tr>
+                    <tr onclick="confirmScore('ls')"><td>Large Straight (LS)</td><td id="row-ls">-</td></tr>
+                    <tr onclick="confirmScore('y')"><td>YATZY</td><td id="row-y">-</td></tr>
+                    <tr onclick="confirmScore('c')"><td>Chance (C)</td><td id="row-c">-</td></tr>
+                    <tr class="total-row"><td>TOTAL SCORE</td><td id="total-val">0</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 <div id="tuto-modal" class="modal hidden">
     <div class="modal-content">
-        <h2>How to Play</h2>
-        <p>1. Roll the dice up to 3 times.</p>
-        <p>2. Tap dice you want to <b>Keep</b> (Yellow border).</p>
-        <p>3. Tap a score category to save your points.</p>
-        <p>4. In Online mode, the Host must press Start.</p>
-        <button class="btn-main" onclick="toggleTuto(false)">Got it!</button>
+        <h3>Scoring Guide</h3>
+        <p><b>3K / 4K:</b> Sum of all dice if at least 3 or 4 match.</p>
+        <p><b>FH (Full House):</b> 3 of one kind + 2 of another. (25 pts)</p>
+        <p><b>SS (Small Straight):</b> 4 dice in sequence (e.g., 1-2-3-4). (30 pts)</p>
+        <p><b>LS (Large Straight):</b> 5 dice in sequence (e.g., 1-2-3-4-5). (40 pts)</p>
+        <p><b>Yatzy:</b> 5 of a kind. (50 pts)</p>
+        <button class="btn-main" onclick="toggleTuto(false)">Close</button>
     </div>
 </div>
 
 <script>
     const URL = 'https://zdanffxnlufgnkmrsoxu.supabase.co';
     const KEY = 'sb_publishable_EwJMOJZo3kIwNc_MryrsWQ_puYbU3RG';
-    let sb; 
-    try { sb = supabase.createClient(URL, KEY); } catch(e) {}
+    const sb = supabase.createClient(URL, KEY);
 
-    let dice = [0,0,0,0,0], held = [false,false,false,false,false], rolls = 3, total = 0;
-    let roomCode = null, isHost = false;
+    let dice = [0,0,0,0,0], held = [false,false,false,false,false], rolls = 3;
+    let scores = {}, roomCode = null, isHost = false;
 
-    function toggleTuto(show) { document.getElementById('tuto-modal').classList.toggle('hidden', !show); }
-
-    function startSinglePlayer() {
-        document.getElementById('screen-menu').classList.add('hidden');
-        document.getElementById('screen-game').classList.remove('hidden');
-    }
-
-    function showOnlineSetup() {
-        document.getElementById('screen-menu').classList.add('hidden');
-        document.getElementById('screen-online').classList.remove('hidden');
-    }
+    function toggleTuto(s) { document.getElementById('tuto-modal').classList.toggle('hidden', !s); }
+    function startSingle() { document.getElementById('screen-menu').classList.add('hidden'); document.getElementById('screen-game').classList.remove('hidden'); }
+    function showOnline() { document.getElementById('screen-menu').classList.add('hidden'); document.getElementById('screen-online').classList.remove('hidden'); }
 
     async function hostRoom() {
-        const name = document.getElementById('name-in').value;
-        if(!name) return alert("Enter Name");
-        roomCode = Math.floor(10000 + Math.random() * 90000).toString();
-        isHost = true;
-        await sb.from('rooms').insert([{ room_code: roomCode, player_1: name, status: 'waiting' }]);
+        const n = document.getElementById('name-in').value; if(!n) return alert("Name!");
+        roomCode = Math.floor(10000 + Math.random()*90000).toString(); isHost = true;
+        await sb.from('rooms').insert([{ room_code: roomCode, player_1: n, status: 'waiting' }]);
         enterLobby();
     }
 
     async function joinRoom() {
-        const name = document.getElementById('name-in').value;
-        roomCode = document.getElementById('code-in').value;
-        const { error } = await sb.from('rooms').update({ player_2: name }).eq('room_code', roomCode);
-        if(error) alert("Room not found"); else enterLobby();
+        const n = document.getElementById('name-in').value; roomCode = document.getElementById('code-in').value;
+        await sb.from('rooms').update({ player_2: n }).eq('room_code', roomCode); enterLobby();
     }
 
     function enterLobby() {
@@ -125,9 +131,8 @@
         document.getElementById('room-id').innerText = "Code: " + roomCode;
         if(isHost) document.getElementById('host-start').classList.remove('hidden');
         sb.channel('l').on('postgres_changes',{event:'*',schema:'public',table:'rooms',filter:`room_code=eq.${roomCode}`}, p => {
-            const d = p.new;
-            document.getElementById('p-list').innerHTML = `<li>${d.player_1}</li>` + (d.player_2 ? `<li>${d.player_2}</li>` : "");
-            if(d.status === 'playing') startSinglePlayer();
+            const d = p.new; document.getElementById('p-list').innerHTML = `<li>${d.player_1}</li><li>${d.player_2 || '...'}</li>`;
+            if(d.status === 'playing') startSingle();
         }).subscribe();
     }
 
@@ -136,31 +141,49 @@
     function rollDice() {
         if(rolls <= 0) return;
         for(let i=0; i<5; i++) if(!held[i]) dice[i] = Math.floor(Math.random()*6)+1;
-        rolls--;
-        draw();
+        rolls--; updateUI(); showGhosts();
     }
 
-    function toggleDie(i) { if(rolls < 3 && rolls > 0) { held[i] = !held[i]; draw(); } }
+    function toggleDie(i) { if(rolls < 3 && rolls > 0) { held[i] = !held[i]; updateUI(); } }
 
-    function draw() {
-        dice.forEach((v, i) => {
-            const el = document.getElementById('d'+i);
-            el.innerText = v || "?";
-            el.className = held[i] ? "die held" : "die";
-        });
+    function updateUI() {
+        dice.forEach((v, i) => { const el = document.getElementById('d'+i); el.innerText = v || "?"; el.className = held[i] ? "die held" : "die"; });
         document.getElementById('roll-status').innerText = "Rolls left: " + rolls;
     }
 
-    function score(type) {
-        if(dice[0] === 0) return;
-        const val = dice.filter(d => d === (type === 'ones' ? 1 : 6)).length * (type === 'ones' ? 1 : 6);
-        const cell = document.getElementById('s-'+type);
-        if(cell.innerText !== "-") return;
-        cell.innerText = val;
-        total += val;
-        document.getElementById('s-total').innerText = total;
+    function getPoints(cat) {
+        const counts = {}; dice.forEach(x => counts[x] = (counts[x] || 0) + 1);
+        const vals = Object.values(counts);
+        const sum = dice.reduce((a,b) => a+b, 0);
+        if(cat <= 6) return (counts[cat] || 0) * cat;
+        if(cat === '3k') return vals.some(v => v >= 3) ? sum : 0;
+        if(cat === '4k') return vals.some(v => v >= 4) ? sum : 0;
+        if(cat === 'fh') return vals.includes(3) && vals.includes(2) ? 25 : 0;
+        if(cat === 'ss') return /1234|2345|3456/.test([...new Set(dice)].sort().join('')) ? 30 : 0;
+        if(cat === 'ls') return /12345|23456/.test([...new Set(dice)].sort().join('')) ? 40 : 0;
+        if(cat === 'y') return vals.includes(5) ? 50 : 0;
+        if(cat === 'c') return sum;
+        return 0;
+    }
+
+    function showGhosts() {
+        const keys = ['1','2','3','4','5','6','3k','4k','fh','ss','ls','y','c'];
+        keys.forEach(k => {
+            const el = document.getElementById('row-'+k);
+            if(!scores[k]) { el.innerText = getPoints(k); el.className = 'ghost'; }
+        });
+    }
+
+    function confirmScore(k) {
+        if(dice[0] === 0 || scores[k] !== undefined) return;
+        scores[k] = getPoints(k);
+        const el = document.getElementById('row-'+k);
+        el.innerText = scores[k]; el.className = 'solid';
+        let totalVal = Object.values(scores).reduce((a,b) => a+b, 0);
+        document.getElementById('total-val').innerText = totalVal;
         dice = [0,0,0,0,0]; held = [false,false,false,false,false]; rolls = 3;
-        draw();
+        document.querySelectorAll('.ghost').forEach(g => g.innerText = "-");
+        updateUI();
     }
 </script>
 </body>
